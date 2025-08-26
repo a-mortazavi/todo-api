@@ -1,0 +1,15 @@
+{
+  "name": "todo-api",
+  "version": "1.0.0",
+  "description": "A simple TODO API using Express",
+  "main": "index.js",
+  "scripts": {
+    "dev": "nodemon index.js"
+  },
+  "dependencies": {
+    "express": "^5.1.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.10"
+  }
+}
