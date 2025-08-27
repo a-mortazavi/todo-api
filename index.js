@@ -4,20 +4,20 @@ const PORT = 8000;
 
 app.use(express.json());
 
-// آرایه‌ی اصلی برای نگهداری داده‌ها
+// Main array to store todos
 const todos = [];
 let nextId = 1;
 
-// 📍 تست اتصال
+// 📍 Ping test
 app.get('/ping', (req, res) => {
     res.send('pong');
 });
 
-// ➕ اضافه کردن آیتم جدید
+// ➕ Add a new todo item
 app.post('/todos', (req, res) => {
     const { title, description } = req.body;
     if (!title) {
-        return res.status(400).json({ error: 'عنوان الزامی است' });
+        return res.status(400).json({ error: 'Title is required' });
     }
 
     const newTodo = {
@@ -33,28 +33,28 @@ app.post('/todos', (req, res) => {
     res.status(201).json(newTodo);
 });
 
-// 📥 دریافت همه‌ی آیتم‌ها
+// 📥 Get all todo items
 app.get('/todos', (req, res) => {
     res.json(todos);
 });
 
-// 📄 دریافت یک آیتم خاص
+// 📄 Get a specific todo item
 app.get('/todos/:id', (req, res) => {
     const todoId = parseInt(req.params.id);
     const todo = todos.find(t => t.id === todoId);
     if (!todo) {
-        return res.status(404).json({ error: 'آیتم پیدا نشد' });
+        return res.status(404).json({ error: 'Todo item not found' });
     }
     res.json(todo);
 });
 
-// ✏️ ویرایش آیتم
+// ✏️ Update a todo item
 app.put('/todos/:id', (req, res) => {
     const todoId = parseInt(req.params.id);
     const { title, description, isCompleted } = req.body;
     const todo = todos.find(t => t.id === todoId);
     if (!todo) {
-        return res.status(404).json({ error: 'آیتم پیدا نشد' });
+        return res.status(404).json({ error: 'Todo item not found' });
     }
 
     if (title !== undefined) todo.title = title;
@@ -65,19 +65,19 @@ app.put('/todos/:id', (req, res) => {
     res.json(todo);
 });
 
-// ❌ حذف آیتم
+// ❌ Delete a todo item
 app.delete('/todos/:id', (req, res) => {
     const todoId = parseInt(req.params.id);
     const index = todos.findIndex(t => t.id === todoId);
     if (index === -1) {
-        return res.status(404).json({ error: 'آیتم پیدا نشد' });
+        return res.status(404).json({ error: 'Todo item not found' });
     }
 
     const deleted = todos.splice(index, 1);
-    res.json({ message: 'آیتم حذف شد', deleted: deleted[0] });
+    res.json({ message: 'Todo item deleted', deleted: deleted[0] });
 });
 
-// 🚀 راه‌اندازی سرور
+// 🚀 Start the server
 app.listen(PORT, () => {
-    console.log(`سرور روی http://localhost:${PORT} اجرا شد`);
+    console.log(`Server is running at http://localhost:${PORT}`);
 });
