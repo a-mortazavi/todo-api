@@ -1,83 +1,95 @@
 ﻿const express = require('express');
+const { Pool } = require('pg');
 const app = express();
 const PORT = 8000;
 
 app.use(express.json());
 
-// Main array to store todos
-const todos = [];
-let nextId = 1;
-
-// 📍 Ping test
-app.get('/ping', (req, res) => {
-    res.send('pong');
+// اتصال به PostgreSQL با متغیرهای محیطی
+const pool = new Pool({
+  host: process.env.DB_HOST || 'db',
+  port: 5432,
+  user: process.env.DB_USER || 'myuser',
+  password: process.env.DB_PASSWORD || 'mypassword',
+  database: process.env.DB_NAME || 'mydb',
 });
 
-// ➕ Add a new todo item
-app.post('/todos', (req, res) => {
-    const { title, description } = req.body;
-    if (!title) {
-        return res.status(400).json({ error: 'Title is required' });
-    }
+// Ping test
+app.get('/ping', (req, res) => res.send('pong'));
 
-    const newTodo = {
-        id: nextId++,
-        title,
-        description: description || '',
-        isCompleted: false,
-        createdAt: new Date(),
-        updatedAt: new Date()
-    };
+// Add a new todo
+app.post('/todos', async (req, res) => {
+  const { title, description } = req.body;
+  if (!title) return res.status(400).json({ error: 'Title is required' });
 
-    todos.push(newTodo);
-    res.status(201).json(newTodo);
+  try {
+    const result = await pool.query(
+      `INSERT INTO todos (title, description, isCompleted, createdAt, updatedAt)
+       VALUES ($1, $2, $3, NOW(), NOW()) RETURNING *`,
+      [title, description || '', false]
+    );
+    res.status(201).json(result.rows[0]);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Database error' });
+  }
 });
 
-// 📥 Get all todo items
-app.get('/todos', (req, res) => {
-    res.json(todos);
+// Get all todos
+app.get('/todos', async (req, res) => {
+  try {
+    const result = await pool.query('SELECT * FROM todos ORDER BY id ASC');
+    res.json(result.rows);
+  } catch (err) {
+    res.status(500).json({ error: 'Database error' });
+  }
 });
 
-// 📄 Get a specific todo item
-app.get('/todos/:id', (req, res) => {
-    const todoId = parseInt(req.params.id);
-    const todo = todos.find(t => t.id === todoId);
-    if (!todo) {
-        return res.status(404).json({ error: 'Todo item not found' });
-    }
-    res.json(todo);
+// Get a specific todo
+app.get('/todos/:id', async (req, res) => {
+  const { id } = req.params;
+  try {
+    const result = await pool.query('SELECT * FROM todos WHERE id = $1', [id]);
+    if (result.rows.length === 0) return res.status(404).json({ error: 'Todo not found' });
+    res.json(result.rows[0]);
+  } catch (err) {
+    res.status(500).json({ error: 'Database error' });
+  }
 });
 
-// ✏️ Update a todo item
-app.put('/todos/:id', (req, res) => {
-    const todoId = parseInt(req.params.id);
-    const { title, description, isCompleted } = req.body;
-    const todo = todos.find(t => t.id === todoId);
-    if (!todo) {
-        return res.status(404).json({ error: 'Todo item not found' });
-    }
+// Update a todo
+app.put('/todos/:id', async (req, res) => {
+  const { id } = req.params;
+  const { title, description, isCompleted } = req.body;
 
-    if (title !== undefined) todo.title = title;
-    if (description !== undefined) todo.description = description;
-    if (isCompleted !== undefined) todo.isCompleted = isCompleted;
-    todo.updatedAt = new Date();
-
-    res.json(todo);
+  try {
+    const result = await pool.query(
+      `UPDATE todos
+       SET title = COALESCE($1, title),
+           description = COALESCE($2, description),
+           isCompleted = COALESCE($3, isCompleted),
+           updatedAt = NOW()
+       WHERE id = $4 RETURNING *`,
+      [title, description, isCompleted, id]
+    );
+    if (result.rows.length === 0) return res.status(404).json({ error: 'Todo not found' });
+    res.json(result.rows[0]);
+  } catch (err) {
+    res.status(500).json({ error: 'Database error' });
+  }
 });
 
-// ❌ Delete a todo item
-app.delete('/todos/:id', (req, res) => {
-    const todoId = parseInt(req.params.id);
-    const index = todos.findIndex(t => t.id === todoId);
-    if (index === -1) {
-        return res.status(404).json({ error: 'Todo item not found' });
-    }
-
-    const deleted = todos.splice(index, 1);
-    res.json({ message: 'Todo item deleted', deleted: deleted[0] });
+// Delete a todo
+app.delete('/todos/:id', async (req, res) => {
+  const { id } = req.params;
+  try {
+    const result = await pool.query('DELETE FROM todos WHERE id = $1 RETURNING *', [id]);
+    if (result.rows.length === 0) return res.status(404).json({ error: 'Todo not found' });
+    res.json({ message: 'Todo deleted', deleted: result.rows[0] });
+  } catch (err) {
+    res.status(500).json({ error: 'Database error' });
+  }
 });
 
-// 🚀 Start the server
-app.listen(PORT, () => {
-    console.log(`Server is running at http://localhost:${PORT}`);
-});
+// Start the server
+app.listen(PORT, () => console.log(`Server is running at http://localhost:${PORT}`));
